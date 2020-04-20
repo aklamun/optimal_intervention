@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg as la
 import pickle
 import matplotlib.pyplot as plt
-import multiprocessing
+#import multiprocessing
 
 import GJ_cascades_dense as cascades
 import simulate_shocks as simulate
@@ -38,7 +38,7 @@ rho = 0.5
 sigma = 0.15
 a = -0.2
 samples = 1000
-b_frac = 20000000
+b_frac = 100
 b_num = 5000
 lu, piv, C_hat, fv, rvs = simulate.setup_simulate(C, Dp, theta, beta, rho, sigma, a, samples)
 y_fracs_e, y_fracs_tot, b_array = simulate.run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b_num)

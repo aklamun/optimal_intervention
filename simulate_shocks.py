@@ -38,7 +38,7 @@ def run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b
     for ran in rvs:
         Dp_prime = np.multiply(Dp, 1+ran)
         tilde_theta, Ind_T = cascades.TransformThresh(lu, piv, C_hat, Dp_prime, theta, beta)
-        x_dict, S_size_dict = cascades.DiscountFrac_batch(fv, cascades.f_GJ, b_array, C, C_hat, beta, lu, piv, tilde_theta, Ind_T)
+        x_dict, S_size_dict = cascades.DiscountFrac_batch(fv, cascades.f_GJ, b_array, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp_prime, theta)
         y = np.array([S_size_dict[b]/np.sum(Ind_T) if np.sum(Ind_T) != 0 else 1 for b in b_array])
         y_fracs_e += y
         y_fracs_tot[i,:] = y

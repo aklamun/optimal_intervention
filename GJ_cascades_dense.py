@@ -30,15 +30,15 @@ def solve_GJ(C, Dp, theta, beta):
 def solve_GJ_factor(C_hat, lu, piv, Dp, theta, beta):
     '''lu,piv are LU factors of I-C'''
     n = len(C_hat)
-    (y_0, y_1, b) = ([0 for i in range(n)],[0 for i in range(n)],[0 for i in range(n)])
+    (y_0, y_1, b) = (np.zeros(n, dtype=np.uint8), np.zeros(n, dtype=np.uint8), np.zeros(n))
     t=0
     
-    while y_0 != y_1 or t==0:
+    while not np.array_equal(y_0, y_1) or t==0:
         t += 1
-        y_0 = y_1[:]
+        y_0 = np.array(y_1, copy=True)
         V = la.lu_solve((lu,piv), Dp-b)
         v = np.dot(C_hat,V)
-        y_1 = [1 if v[i]<theta[i] else 0 for i in range(n)]
+        y_1 = np.array([1 if v[i]<theta[i] else 0 for i in range(n)], dtype=np.uint8)
         b = np.multiply(beta,y_1)
     return v, np.array(y_1, dtype=np.uint8)
 
@@ -51,7 +51,7 @@ def TransformThresh(lu, piv, C_hat, Dp, theta, beta):
     th = np.dot( C_hat_inv, theta)
     V = la.lu_solve((lu,piv), Dp - np.multiply(beta, Ind_T))
     
-    for u in np.nonzero(Ind_T):
+    for u in np.nonzero(Ind_T)[0]:
         Ind_u = np.zeros(len(Dp))
         Ind_u[u] = 1
         diff = la.lu_solve((lu,piv), np.multiply(beta,Ind_u))
@@ -75,7 +75,9 @@ def precompute_fv(f, lu, piv, C_hat, beta):
     n = len(C_hat)
     fv = {}
     for v in range(n):
-        fv[v] = f([v], lu, piv, C_hat, beta)
+        Ind_v = np.zeros(n, dtype=np.uint8)
+        Ind_v[v] = 1
+        fv[v] = f(Ind_v, lu, piv, C_hat, beta)
     return fv
 
 def Gamma_neg(v, Ind_A, f, lu, piv, C_hat, beta, fv):
@@ -86,12 +88,12 @@ def Gamma_neg(v, Ind_A, f, lu, piv, C_hat, beta, fv):
     Ind_A[v] = 1
     return calc
 
-def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T):
+def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp, theta):
     q = {}
     Ind_A = Ind_T - Ind_S   #remaining set to influence
     
     fS = f(Ind_S, lu, piv, C_hat, beta)
-    influence_cost = theta_exp - fS
+    influence_cost = tilde_theta - fS
     
     for v in np.nonzero(Ind_A)[0]:
         #q[v] = Gamma_neg(v, Ind_A, f, lu, piv, C_hat, beta, fv)     #influence of v on set A
@@ -103,11 +105,12 @@ def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, theta_exp, 
     #pick the max entry and add to seed set and payments x
     u = max(q, key=q.get)
     u_frac_inf = max(influence_cost[u],0)
-    x_1[u] = u_frac_inf
-    Ind_S[u] = 1
+    x_1[u] = u_frac_inf * 1.000001    #add a bit extra so that no numerical problems
     
+    v, y_A = solve_GJ_factor(C_hat, lu, piv, Dp, theta - np.dot(C_hat, x_1), beta)
+    Ind_S[u] = 1
     fS = f(Ind_S, lu, piv, C_hat, beta)
-    influence_cost = theta_exp - fS
+    influence_cost = tilde_theta - fS
     Ind_A = Ind_T - Ind_S
     #check for nodes that are already passed threshold
     repeat = True
@@ -122,20 +125,23 @@ def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, theta_exp, 
             if change == True:
                 Ind_A = Ind_T - Ind_S
                 fS = f(Ind_S, lu, piv, C_hat, beta)
-                influence_cost = theta_exp - fS
+                influence_cost = tilde_theta - fS
             else:
                 repeat = False
+    assert np.array_equal(y_A, Ind_A)
     
     return x_1, Ind_S
 
-def DiscountFrac_opt(f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T):
+def DiscountFrac_opt(f, b, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp, theta):
     '''heuristic algorithm for fractional influence maximization
     f = influence propagation function
     b = budget
     (C,C_hat,beta) define GJ system, (lu, piv) are la.lu_factor of I-C
-    theta_exp = expected threshold shortfall (threshold - node value)
+    tilde_theta = expected threshold shortfall (threshold - node value)
     theta_err = +/- error range for threshold shortfall
     Ind_T = initial set of node failures (set for which theta_exp + theta_err > 0), indicated by 1 entries
+    Dp = asset values for financial network model
+    theta = thresholds in financial network model
     outputs the optimization estimate for budget b, end influenced set S
     '''
     n = len(C_hat)
@@ -147,7 +153,7 @@ def DiscountFrac_opt(f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T):
         #print(np.sum(x_1),len(S))
         x_0 = np.array(x_1, copy=True)
         Ind_S_0 = np.array(Ind_S, copy=True)
-        x_1, Ind_S = DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T)
+        x_1, Ind_S = DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp, theta)
         
         print(count)
         count += 1
@@ -158,15 +164,16 @@ def DiscountFrac_opt(f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T):
         return x_0, np.nonzero(Ind_S_0)
 
 
-def DiscountFrac_batch(fv, f, b_array, C, C_hat, beta, lu, piv, theta_exp, Ind_T):
+def DiscountFrac_batch(fv, f, b_array, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp, theta):
     '''heuristic algorithm for fractional influence maximization
     fv = output of precompute_fv (a slow step)
     f = influence propagation function
     b_array = array of budgets to consider, ordered least to greatest
     (C,C_hat,beta) define GJ system, (lu, piv) are la.lu_factor of I-C
-    theta_exp = expected threshold shortfall (threshold - node value)
-    theta_err = +/- error range for threshold shortfall
+    tilde_theta = expected threshold shortfall (threshold - node value)
     Ind_T = initial set of node failures (set for which theta_exp + theta_err > 0), indicated by 1 entries
+    Dp = asset values for financial network model
+    theta = thresholds in financial network model
     outputs the optimization estimates for all budgets in b_array, size of end influenced sets S
     '''
     x_dict = {}
@@ -179,7 +186,7 @@ def DiscountFrac_batch(fv, f, b_array, C, C_hat, beta, lu, piv, theta_exp, Ind_T
         while np.sum(x_1) < b and np.sum(Ind_S) < np.sum(Ind_T):
             x_0 = np.array(x_1, copy=True)
             Ind_S_0 = np.array(Ind_S, copy=True)
-            x_1, Ind_S = DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, theta_exp, Ind_T)
+            x_1, Ind_S = DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp, theta)
             
         if np.sum(x_1) <= b:
             x_dict[b] = np.array(x_1, copy=True)
@@ -196,7 +203,7 @@ def DiscountFrac_batch(fv, f, b_array, C, C_hat, beta, lu, piv, theta_exp, Ind_T
 '''
 tilde_theta, Ind_T = TransformThresh(lu,piv,C_hat,Dp*0.9,theta,beta)
 b = np.sum(tilde_theta)
-#x, S = DiscountFrac_opt(f_GJ,b,C, C_hat, beta, lu, piv, tilde_theta, Ind_T)
+#x, S = DiscountFrac_opt(f_GJ,b,C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp*0.9, theta)
 #vi,yi = solve_GJ_factor(C_hat, lu, piv, Dp*0.9, theta, beta)
 #vf,yf = solve_GJ_factor(C_hat, lu, piv, Dp*0.9, theta-x, beta)
 
@@ -204,6 +211,6 @@ b_array = np.linspace(0, np.sum(Dp)/2, num=1000)
 b_array = np.linspace(0, b, num=1000)
 #b_array = np.array([0, b, b*2])
 #fv = precompute_fv(f_GJ, lu, piv, C_hat, beta)
-x_dict, S_size_dict = DiscountFrac_batch(fv, f_GJ, b_array, C, C_hat, beta, lu, piv, tilde_theta, Ind_T)
+x_dict, S_size_dict = DiscountFrac_batch(fv, f_GJ, b_array, C, C_hat, beta, lu, piv, tilde_theta, Ind_T, Dp*0.9, theta)
 x_sums = [np.sum(x_dict[b_array[i]]) for i in range(len(b_array))]
 '''
