@@ -37,13 +37,13 @@ theta = [theta[i] if theta[i]>=0 else 0 for i in range(len(C))]
 rho = 0.5
 sigma = 0.15
 a = -0.2
-samples = 1000
+samples = 5000
 b_frac = 100
 b_num = 5000
 lu, piv, C_hat, fv, rvs = simulate.setup_simulate(C, Dp, theta, beta, rho, sigma, a, samples)
-y_fracs_e, y_fracs_tot, b_array = simulate.run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b_num)
+S_data, T_data, b_array = simulate.run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b_num)
 
-
+'''
 #plot
 plt.plot(b_array, y_fracs_e)
 plt.plot(b_array, np.percentile(y_fracs_tot, 90, axis=0) )
@@ -54,3 +54,4 @@ plt.xlabel('Budget b', fontsize=14)
 plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
 plt.savefig('plot.eps')
 plt.show()
+'''

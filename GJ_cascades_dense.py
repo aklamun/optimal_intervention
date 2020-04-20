@@ -105,9 +105,12 @@ def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, tilde_theta
     #pick the max entry and add to seed set and payments x
     u = max(q, key=q.get)
     u_frac_inf = max(influence_cost[u],0)
-    x_1[u] = u_frac_inf * 1.000001    #add a bit extra so that no numerical problems
+    x_1[u] = u_frac_inf * 1.00001    #add a bit extra so that no numerical problems
     
-    v, y_A = solve_GJ_factor(C_hat, lu, piv, Dp, theta - np.dot(C_hat, x_1), beta)
+    
+    #An alternative way to do the following is commented out--it is slower
+    #v, y_A = solve_GJ_factor(C_hat, lu, piv, Dp, theta - np.dot(C_hat, x_1), beta)
+    #y_S = Ind_T - y_A
     Ind_S[u] = 1
     fS = f(Ind_S, lu, piv, C_hat, beta)
     influence_cost = tilde_theta - fS
@@ -128,7 +131,8 @@ def DiscountFrac_step(fv, Ind_S, x_1, f, b, C, C_hat, beta, lu, piv, tilde_theta
                 influence_cost = tilde_theta - fS
             else:
                 repeat = False
-    assert np.array_equal(y_A, Ind_A)
+    #assert np.array_equal(y_A, Ind_A)
+    #assert np.array_equal(y_S, Ind_S)
     
     return x_1, Ind_S
 
