@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 import GJ_cascades_dense as cascades
 import simulate_shocks as simulate
+import interpret_data as interpret
 
 ###############################################################################
 ###############################################################################
@@ -34,24 +35,50 @@ theta = [theta[i] if theta[i]>=0 else 0 for i in range(len(C))]
 
 ###############################################################################
 '''run the simulation'''
-rho = 0.5
+rho = 0.6
 sigma = 0.15
-a = -0.2
+a = -0.3
 samples = 5000
 b_frac = 100
 b_num = 5000
 lu, piv, C_hat, fv, rvs = simulate.setup_simulate(C, Dp, theta, beta, rho, sigma, a, samples)
+rvs = np.maximum(rvs, -1)
 S_data, T_data, b_array = simulate.run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b_num)
 
-'''
-#plot
-plt.plot(b_array, y_fracs_e)
-plt.plot(b_array, np.percentile(y_fracs_tot, 90, axis=0) )
-plt.plot(b_array, np.percentile(y_fracs_tot, 10, axis=0) )
+
+with open('fs_2014', 'wb') as f:
+    pickle.dump([rvs, S_data, T_data, b_array, (rho, sigma, a, samples, b_frac, b_num)],f)
+
+
+
+#plot expected values and percentiles
+n = len(C)
+plt.plot(b_array/np.sum(Dp), np.mean(S_data, axis=0)/n)
+plt.plot(b_array/np.sum(Dp), np.percentile(S_data, 90, axis=0)/n )
+plt.plot(b_array/np.sum(Dp), np.percentile(S_data, 10, axis=0)/n )
+plt.axhline(y=np.mean(T_data)/n)
 plt.title('Expected Fraction of Defaults Prevented', fontsize=14)
-plt.ylabel('Estimated |S|/|T|', fontsize=14)
-plt.xlabel('Budget b', fontsize=14)
+plt.ylabel('Estimated E|S| / |U|', fontsize=14)
+plt.xlabel('b / |Dp|', fontsize=14)
 plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
 plt.savefig('plot.eps')
 plt.show()
-'''
+
+
+q = 100
+S_tvar, T_tvar = interpret.tvar(S_data, T_data, q)
+n = len(C)
+plt.plot( b_array/np.sum(Dp), (np.mean(T_data) - np.mean(S_data, axis=0))/n, label='Expected')
+plt.plot( b_array/np.sum(Dp), (T_tvar - S_tvar)/n, label='TVaR(q=10)')
+plt.title('Expected % of Firms Defaulting', fontsize=14)
+plt.ylabel('Estimated E|T \ S| / |U|', fontsize=14)
+plt.xlabel('b / |Dp|', fontsize=14)
+plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
+plt.legend(loc='upper right', fontsize=14)
+plt.savefig('plot.eps')
+plt.show()
+
+
+
+
+

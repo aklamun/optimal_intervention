@@ -45,7 +45,7 @@ def run_simulate(lu, piv, C_hat, fv, rvs, C, Dp, theta, beta, samples, b_frac, b
         S_data[i,:] = y
         T_data[i] = np.sum(Ind_T)
         
-        print("{} simulation complete, {} initial failures, {} seconds".format(i,np.sum(Ind_T), time.time()-start_time))
+        print("{} simulation complete, {} initial failures, {} seconds, |T|={}, |S|={}".format(i,np.sum(Ind_T), time.time()-start_time, np.sum(Ind_T), np.sum(S_data[i,-1])))
         i += 1
     
     return S_data, T_data, b_array
