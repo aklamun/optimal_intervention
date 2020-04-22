@@ -9,6 +9,10 @@ import numpy as np
 import scipy.linalg as la
 import pickle
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+import matplotlib.cm as cm
+import matplotlib.ticker as mtick
+import seaborn as sns
 #import multiprocessing
 
 import GJ_cascades_dense as cascades
@@ -51,6 +55,15 @@ with open('fs_2014', 'wb') as f:
 
 
 
+
+
+
+
+
+
+###############################################################################
+###############################################################################
+###############################################################################
 #plot expected values and percentiles
 n = len(C)
 plt.plot(b_array/np.sum(Dp), np.mean(S_data, axis=0)/n)
@@ -64,7 +77,8 @@ plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
 plt.savefig('plot.eps')
 plt.show()
 
-
+###############################################################################
+#plot conditional expected defaults
 q = 100
 S_tvar, T_tvar = interpret.tvar(S_data, T_data, q)
 n = len(C)
@@ -76,6 +90,61 @@ plt.xlabel('b / |Dp|', fontsize=14)
 plt.ticklabel_format(axis="x", style="sci", scilimits=(0,0))
 plt.legend(loc='upper right', fontsize=14)
 plt.savefig('plot.eps')
+plt.show()
+
+
+###############################################################################
+#plot 2d histogram with contour lines
+
+fig, ax = plt.subplots()
+hist = plt.hist2d(b_uniarray, A_uniarray, bins=300, cmap=cm.gray, norm=mcolors.PowerNorm(0.3))
+CS = plt.contour(hist[1][1:], hist[2][1:], np.transpose(hist[0]), levels=80, cmap='flag')
+
+# make a colorbar for the contour lines
+CB = fig.colorbar(CS, shrink=0.9, extend='both', format='%.1e')
+
+# We can still add a colorbar for the image, too.
+CBI = fig.colorbar(hist[3], orientation='vertical', shrink=0.9, format='%.0e')
+
+plt.title('Histogram % Firms Defaulting vs. Intervention Budget', fontsize=18)
+plt.ylabel('% Firms Defaulting', fontsize=18)
+plt.xlabel('Budget % of Total Assets |Dp|', fontsize=18)
+ax.yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1))
+ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=1))
+ax.tick_params(axis='both', which='major', labelsize=18)
+
+fig.set_size_inches(12, 7, forward=True)
+
+plt.savefig('simulation_hist_contour.eps')
+plt.show()
+
+###############################################################################
+#plot 1d histograms
+
+fig, ax = plt.subplots()
+sns.distplot(S_data[:,-1]/len(C), kde=False)
+plt.title('Defaults Averted from 1% Intervention', fontsize=18)
+plt.ylabel('Count', fontsize=18)
+plt.xlabel('Defaults Averted (% Total Firms)', fontsize=18)
+ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=1))
+ax.tick_params(axis='both', which='major', labelsize=14)
+ax.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=0))
+fig.set_size_inches(6.5, 5, forward=True)
+plt.savefig('simulation_hist_1d_diff.pdf')
+plt.show()
+
+fig, ax = plt.subplots()
+ax1 = sns.distplot(T_data/len(C), kde=False, label='No Intervention')
+ax2 = sns.distplot((T_data - S_data[:,-1])/len(C), kde=False, label='1% Intervention')
+plt.title('Histogram % Firms Defaulting', fontsize=18)
+plt.ylabel('Count', fontsize=18)
+plt.xlabel('% Firms Defaulting', fontsize=18)
+ax1.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=1))
+ax1.tick_params(axis='both', which='major', labelsize=14)
+ax1.xaxis.set_major_formatter(mtick.PercentFormatter(xmax=1, decimals=0))
+plt.legend(loc='upper right', fontsize=14)
+fig.set_size_inches(7.5, 5, forward=True)
+plt.savefig('simulation_hists_1d.pdf')
 plt.show()
 
 
