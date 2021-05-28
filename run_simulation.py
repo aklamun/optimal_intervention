@@ -95,6 +95,18 @@ plt.show()
 
 ###############################################################################
 #plot 2d histogram with contour lines
+'''
+b_uniarray = budgets from simulation runs (b_array) / np.sum(Dp) arranged in 1d array
+A_uniarray = % firms failing in each simulation run (paired with entry in b_uniarray) arranged in 1d array
+    calculated similarly to in "plot 1d histograms" below
+Note: the "plot 1d histograms" below are 1d vertical slides of the 2d histogram and x-values 0 and 1
+'''
+
+A_uniarray = np.zeros(samples*b_num)
+b_uniarray = np.zeros(samples*b_num)
+for i in range(samples):
+    A_uniarray[b_num*i: b_num*(i+1)] = (T_data[i] - S_data[i,:b_num])/len(C)
+    b_uniarray[b_num*i: b_num*(i+1)] = b_array[:b_num]/np.sum(Dp)
 
 fig, ax = plt.subplots()
 hist = plt.hist2d(b_uniarray, A_uniarray, bins=300, cmap=cm.gray, norm=mcolors.PowerNorm(0.3))
